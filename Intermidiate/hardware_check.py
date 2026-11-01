@@ -11,8 +11,7 @@ Examples (from this folder):
     python hardware_check.py --circuit best   --run
     python hardware_check.py --circuit givens --run --zne
 
-Keys are read from the gitignored root ``.env`` (fallbacks: ``keys.txt``)
-and are never printed.
+Keys are read from ``../keys.txt`` and are never printed.
 """
 from __future__ import annotations
 
@@ -51,9 +50,9 @@ def build(circuit_name: str, optimization_level: int = 3, seed: int = 42):
     """Load the QASM and transpile it onto the fixed 8-qubit line."""
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
-    keys = v.load_keys()
+    keys = v.load_keys(HERE.parent / "keys.txt")
     if not keys:
-        raise SystemExit("no keys file found (.env or keys.txt)")
+        raise SystemExit("keys.txt not found at ../keys.txt")
 
     from qiskit_ibm_runtime import QiskitRuntimeService
 
@@ -124,7 +123,7 @@ def main() -> int:
           f"-> {ref['score']:,} points, job {ref['job']}")
 
     if not args.run:
-        print("\nDRY RUN - nothing sent to IBM.  Add --run to execute.")
+        print("\nDRY RUN — nothing sent to IBM.  Add --run to execute.")
         print("Run `python hardware_check.py --circuit givens --run` for the "
               "best hardware circuit.")
         return 0
@@ -175,7 +174,7 @@ def main() -> int:
         print("\n  ZNE raw points :", np.asarray(data.evs_noise_factors))
         print("  ZNE extrapolated:", np.asarray(data.evs_extrapolated))
         if np.isnan(energy):
-            print("  exponential fit returned NaN - use the raw points above "
+            print("  exponential fit returned NaN — use the raw points above "
                   "for a linear fit.")
 
     score = report(args.circuit, energy, qc.depth(), swaps, exact)

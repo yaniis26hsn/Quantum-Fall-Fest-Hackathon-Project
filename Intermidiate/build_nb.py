@@ -9,8 +9,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 algo = (HERE / "vqe_algo.py").read_text(encoding="utf-8")
-best_qasm = (HERE / "n2_8q_best.qasm").read_text(encoding="utf-8").strip()
-two_layer_qasm = (HERE / "n2_8q_2layer.qasm").read_text(encoding="utf-8").strip()
 
 cells = []
 
@@ -94,25 +92,7 @@ print("imports OK")
 
 # ---------------------------------------------------------------------------
 md(r"""
-## 1. Setup — the algorithm module
-
-The algorithm module is embedded below so this notebook is self-contained.
-
-- `brickwall_ansatz(n, layers)` — RY layer + alternating **even/odd** CX layers.
-  Unlike `real_amplitudes(entanglement='linear')`, the CXs are parallel, so the
-  depth is $1+2\,\text{layers}$ instead of a sequential ladder of length $N-1$.
-- `givens_ansatz(n)` — HF preparation + `CX(a,b) · RY(θ,a) · CX(a,b)`, a
-  particle-number-conserving rotation between the highest occupied and lowest
-  unoccupied orbital.
-- `solve_brickwall`, `solve_givens`, `score_parts`, `preview_score`,
-  `transpile_linear`, `to_qasm` / `from_qasm`.
-""")
-
-code(algo)
-
-# ---------------------------------------------------------------------------
-md(r"""
-## 2. The two N₂ Hamiltonians and their exact energies
+## 1. The two N₂ Hamiltonians and their exact energies
 
 The 6-qubit and 8-qubit Hamiltonians are the ones shipped with the challenge.
 `exact_energy` diagonalises the full $2^N \times 2^N$ matrix — fine for $N \le 12$.
@@ -135,15 +115,32 @@ print(f"\nN=8 Hartree-Fock alone scores "
 
 # ---------------------------------------------------------------------------
 md(r"""
+## 2. The algorithm
+
+`vqe_algo.py` is embedded below so this notebook is self-contained.
+
+- `brickwall_ansatz(n, layers)` — RY layer + alternating **even/odd** CX layers.
+  Unlike `real_amplitudes(entanglement='linear')`, the CXs are parallel, so the
+  depth is $1+2\,\text{layers}$ instead of a sequential ladder of length $N-1$.
+- `givens_ansatz(n)` — HF preparation + `CX(a,b) · RY(θ,a) · CX(a,b)`, a
+  particle-number-conserving rotation between the highest occupied and lowest
+  unoccupied orbital.
+- `solve_brickwall`, `solve_givens`, `score_parts`, `preview_score`,
+  `transpile_linear`, `to_qasm` / `from_qasm`.
+""")
+
+code(algo)
+
+# ---------------------------------------------------------------------------
+md(r"""
 ## 3. The submitted circuit — 6-layer brickwall, 4,392 points
 
-The QASM embedded in the next cell is exactly what was sent to
+The QASM in `n2_8q_best.qasm` is exactly what was sent to
 `challenge_intermediate`. It has 8 qubits, 56 RY + 21 CX, depth 13, zero SWAPs.
 """)
 
 code(r"""
-BEST_QASM = __BEST_QASM__
-submitted = from_qasm(BEST_QASM)
+submitted = from_qasm(Path("n2_8q_best.qasm").read_text(encoding="utf-8"))
 submitted_energy = statevector_energy(submitted, H8)
 submitted_error = abs(submitted_energy - exact8)
 submitted_metrics = circuit_metrics(submitted)
@@ -156,7 +153,7 @@ print(f"error  = {submitted_error:.6e} Ha")
 print(f"depth  = {submitted_metrics['depth']} (budget 16), "
       f"swaps = {submitted_metrics['swaps']}, ops = {submitted_metrics['ops']}")
 preview_score(submitted, submitted_energy, exact8)
-""".replace("__BEST_QASM__", '"""' + best_qasm + '"""'))
+""")
 
 md(r"""
 ### Rebuild it from scratch (optional, ~3 minutes)
@@ -174,7 +171,7 @@ if REOPTIMIZE:
     print(f"rebuilt error  = {rebuilt['error']:.6e} Ha")
     print(f"rebuilt score  = {rebuilt['score']:,}")
 else:
-    print("REOPTIMIZE=False — using the embedded QASM (4,392).")
+    print("REOPTIMIZE=False — using the saved QASM (4,392).")
     print("Set REOPTIMIZE=True to rerun the 56-parameter optimization.")
 """)
 
@@ -221,8 +218,7 @@ def table_row(name, circuit):
 
 hf_circuit = QuantumCircuit(8)
 hf_circuit.x(range(4))
-TWO_LAYER_QASM = __TWO_LAYER_QASM__
-two_layer = from_qasm(TWO_LAYER_QASM)
+two_layer = from_qasm(Path("n2_8q_2layer.qasm").read_text(encoding="utf-8"))
 
 rows = [
     table_row("HF only", hf_circuit),
@@ -235,7 +231,7 @@ print(f"{'circuit':<22}{'N':>3}{'depth':>7}{'SWAP':>6}{'error':>12}{'score':>8}"
 print("-" * 58)
 for name, n, d, sw, err, sc in rows:
     print(f"{name:<22}{n:>3}{d:>7}{sw:>6}{err:>12.3e}{sc:>8,}")
-""".replace("__TWO_LAYER_QASM__", '"""' + two_layer_qasm + '"""'))
+""")
 
 # ---------------------------------------------------------------------------
 md(r"""
@@ -274,7 +270,7 @@ if RUN_HARDWARE:
     from qiskit_ibm_runtime import QiskitRuntimeService, EstimatorV2 as Estimator
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
-    keys = load_keys()
+    keys = load_keys("../keys.txt")
     service = QiskitRuntimeService(channel="ibm_quantum_platform",
                                    token=keys["IBM_Key"], instance=keys["IBM_Crn"])
     backend = service.backend(BACKEND)
@@ -304,7 +300,7 @@ else:
 md(r"""
 ## 7. Submission
 
-The official submission was made with the embedded 6-layer QASM and
+The official submission was made with `n2_8q_best.qasm` and
 `obtainedResult = 0.99911744`:
 
 - **Submission ID:** `5571d09f-3e27-45b7-be28-35df1c7d1137`
@@ -320,7 +316,7 @@ SUBMIT = False  # set True to send a new submission (10-second rate limit)
 if SUBMIT:
     import requests
 
-    keys = load_keys()
+    keys = load_keys("../keys.txt")
     payload = {
         "qasm": to_qasm(submitted),
         "challengeId": "challenge_intermediate",
@@ -335,11 +331,18 @@ else:
 
 # ---------------------------------------------------------------------------
 md(r"""
-## 8. Self-contained notebook
+## 8. Files
 
-The algorithm module and both QASM circuits are embedded in the cells above,
-so this notebook runs on its own. The only external file is the optional,
-gitignored `.env` used by the hardware/submission cells.
+| File | Purpose |
+|---|---|
+| `vqe_algo.py` | Hamiltonians, ansätze, optimizers, scoring, QASM helpers |
+| `test_vqe_algo.py` | Fast assertions: exact energies, QASM round-trip, zero SWAPs, scores |
+| `build_nb.py` | Rebuilds this notebook |
+| `challenge_intermediate_vqe_OPTIMISE.ipynb` | This notebook |
+| `n2_8q_best.qasm` | Submitted 6-layer circuit (4,392) |
+| `n2_8q_2layer.qasm` | 7-CX comparison circuit (4,386 noiseless, 2,233 hardware) |
+| `n2_8q_givens.qasm` | 2-CX Givens circuit (4,386 noiseless, 4,145 hardware) |
+| `RESULTS.md` | Score summary, job IDs, reproduction notes |
 
 **Bottom line.** The provided Hamiltonian's ground state is 98.3% HF. The
 starter's `real_amplitudes` ansatz cannot express the small correlation, and

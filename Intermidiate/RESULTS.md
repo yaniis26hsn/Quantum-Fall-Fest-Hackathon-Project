@@ -124,7 +124,7 @@ the same QASM scores 251 on a real device.
 | `n2_8q_best.qasm` | **Submitted** 6-layer brickwall — 4,392 noiseless, 251 hardware |
 | `n2_8q_givens.qasm` | 2-CX Givens — 4,386 noiseless, **4,145 hardware** |
 | `n2_8q_2layer.qasm` | 7-CX comparison — 4,386 noiseless, 2,233 hardware |
-| `hardware_check.py` | Re-runs the IBM measurements (opt-in, needs root `.env`) |
+| `hardware_check.py` | Re-runs the IBM measurements (opt-in, needs `../keys.txt`) |
 | `challenge_intermediate_vqe.ipynb` | Original starter notebook (untouched) |
 
 ---
@@ -146,10 +146,8 @@ python hardware_check.py --circuit best   --run
 python hardware_check.py --circuit givens --run --zne
 ```
 
-Keys are read from the gitignored root `.env` (`IBM_Key`, `IBM_Crn`,
-`Team_Key`, `Submission_URL`) and are never printed. For a fresh clone,
-copy `.env.example` to `.env` and fill it in. Fallbacks are `keys.txt`
-and `Begginer/keys.txt`; all are gitignored.
+Keys are read from `../keys.txt` (`IBM_Key`, `IBM_Crn`, `Team_Key`,
+`Submission_URL`) and are never printed. `keys.txt` is gitignored.
 
 ---
 

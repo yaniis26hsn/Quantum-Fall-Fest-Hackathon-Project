@@ -29,7 +29,6 @@ The scoring formula implemented here is the one from the challenge:
     Score   = round(Base * A^2 * S_swap * D_depth)
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -40,7 +39,6 @@ from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.transpiler import CouplingMap
 
 BASELINE_ERROR = 0.5  # Hartree, the challenge's reference error
-KEY_NAMES = ("IBM_Key", "IBM_Crn", "Team_Key", "Submission_URL")
 
 
 # ---------------------------------------------------------------------------
@@ -302,60 +300,16 @@ def preview_score(circuit: QuantumCircuit, vqe_energy: float, exact: float,
     return parts["score"]
 
 
-def load_keys(path: str | Path | None = None) -> dict:
-    """Load ``KEY=VALUE`` secrets from a gitignored file.
-
-    With no argument, search order is:
-
-    1. ``$KEYS_FILE``
-    2. ``<repo>/.env``            (the canonical, gitignored file)
-    3. ``<repo>/keys.txt``
-    4. ``<repo>/Begginer/keys.txt``
-    5. ``<repo>/Intermidiate/keys.txt``
-    6. ``./.env`` and ``./keys.txt``
-
-    Real environment variables override values read from the file, so CI can
-    inject secrets without creating a file at all.
-    """
-    if path is not None:
-        candidates = [Path(path)]
-    else:
-        candidates = []
-        env_path = os.environ.get("KEYS_FILE")
-        if env_path:
-            candidates.append(Path(env_path))
-        try:
-            here = Path(__file__).resolve().parent
-        except NameError:  # embedded in a notebook: no __file__
-            here = Path.cwd().resolve()
-        repo = here.parent if here.name in ("Begginer", "Intermidiate") else here
-        candidates += [
-            repo / ".env",
-            repo / "keys.txt",
-            repo / "Begginer" / "keys.txt",
-            repo / "Intermidiate" / "keys.txt",
-            Path.cwd() / ".env",
-            Path.cwd() / "keys.txt",
-        ]
-
+def load_keys(path: str | Path = "../keys.txt") -> dict:
+    """Read keys.txt (key=value lines) without hard-coding secrets."""
+    path = Path(path)
     keys = {}
-    for candidate in candidates:
-        if not candidate.is_file():
-            continue
-        for line in candidate.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
+    if not path.exists():
+        return keys
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "=" in line:
             key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key:
-                keys[key] = value
-        break
-
-    for key in set(keys) | set(KEY_NAMES):
-        if os.environ.get(key):
-            keys[key] = os.environ[key]
+            keys[key.strip()] = value.strip()
     return keys
 
 
