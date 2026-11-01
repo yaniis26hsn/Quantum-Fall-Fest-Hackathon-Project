@@ -39,22 +39,62 @@ Ici, on construit un **arbre parallèle qui ne suit que les vrais câbles de la 
 code(r"""
 # %pip install -q qiskit qiskit-ibm-runtime matplotlib requests
 import math
+import os
 import requests
 import matplotlib.pyplot as plt
+from pathlib import Path
 from qiskit import QuantumCircuit, transpile, qasm2
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2
+
+
+# Load KEY=VALUE secrets from the gitignored root .env (or a keys.txt fallback).
+def load_keys(path=None):
+    if path is not None:
+        candidates = [Path(path)]
+    else:
+        candidates = []
+        env_path = os.environ.get("KEYS_FILE")
+        if env_path:
+            candidates.append(Path(env_path))
+        here = Path.cwd().resolve()
+        roots = (here, *here.parents)
+        candidates += [root / ".env" for root in roots]
+        candidates += [path for root in roots for path in
+                       (root / "keys.txt", root / "Begginer" / "keys.txt",
+                        root / "Intermidiate" / "keys.txt")]
+    keys = {}
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key:
+                keys[key] = value
+        break
+    for key in set(keys) | {"IBM_Key", "IBM_Crn", "Team_Key", "Submission_URL"}:
+        if os.environ.get(key):
+            keys[key] = os.environ[key]
+    return keys
 """)
 
 md(r"""
 ## 1. Connexion à IBM Quantum
-Mets ta clé API IBM Quantum (page d'accueil de quantum.cloud.ibm.com). Si tu l'as déjà enregistrée avec `save_account`, laisse `TOKEN = None`.
+Les clés sont lues depuis le fichier `.env` à la racine du dépôt (ignoré par git).
+Renseigne `IBM_Key` et `IBM_Crn` ; si tu as déjà enregistré un compte avec
+`save_account`, laisse `TOKEN = None`.
 """)
 
 code(r"""
-TOKEN = None          # "ta_cle_api_ibm"  (ou None si deja enregistree)
-INSTANCE = None       # CRN de ton instance si tu en as plusieurs, sinon None
-BACKEND_NAME = None   # ex: "ibm_fez" ; None = la machine la moins chargee
+keys = load_keys()
+TOKEN = keys.get("IBM_Key")       # cle API IBM Quantum (ne partage pas ce fichier)
+INSTANCE = keys.get("IBM_Crn")    # CRN de ton instance si tu en as plusieurs
+BACKEND_NAME = None               # ex: "ibm_fez" ; None = la machine la moins chargee
 
 service = QiskitRuntimeService(channel="ibm_quantum_platform", token=TOKEN, instance=INSTANCE) if TOKEN \
     else QiskitRuntimeService()
@@ -233,9 +273,13 @@ display(submission_circuit.draw("mpl", fold=-1))
 md("## 8. Soumission")
 
 code(r"""
-API_KEY = "YOUR_TEAM_API_KEY_HERE"
-SUBMISSION_URL = "http://localhost:3000/api/submissions"
+keys = load_keys()
+API_KEY = keys.get("Team_Key")
+SUBMISSION_URL = keys.get("Submission_URL")
 CHALLENGE_ID = "challenge_beginner"
+
+if not API_KEY or not SUBMISSION_URL:
+    raise RuntimeError("Team_Key / Submission_URL missing from the keys file")
 
 payload = {"qasm": qasm2.dumps(submission_circuit), "challengeId": CHALLENGE_ID,
            "obtainedResult": float(submission_correlation)}
