@@ -1,1 +1,1 @@
-![Uploading Certificate_of_Participation.png…]()
+![Certificate_of_Participation.png…]()
